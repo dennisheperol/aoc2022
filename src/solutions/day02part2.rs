@@ -11,6 +11,7 @@ pub fn solve() {
     println!("{}", points);
 }
 
+#[derive(PartialEq, Debug)]
 enum Outcome {
     Win,
     Draw,

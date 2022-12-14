@@ -12,6 +12,8 @@ fn main() {
         (2, 2) => solutions::day02part2::solve(),
         (3, 1) => solutions::day03::part1(),
         (3, 2) => solutions::day03::part2(),
+        (4, 1) => solutions::day04::part1(),
+        (4, 2) => solutions::day04::part2(),
         _ => panic!("unknown day {}", day_num),
     };
 }
