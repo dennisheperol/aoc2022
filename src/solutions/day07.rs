@@ -5,9 +5,9 @@ use std::rc::{Rc, Weak};
 pub fn part1() {
     let content = fs::read_to_string("puzzle_input/day07.txt").expect("Couldn't read file");
 
-    build_filesystem(content);
+    let size = build_filesystem(content).get_sizes_under(100000);
 
-    // println!("{content}");
+    println!("{size}");
 }
 
 pub fn part2() {
@@ -18,78 +18,90 @@ pub fn part2() {
 
 #[derive(Debug)]
 struct Directory {
+    name: String,
     size: Rc<RefCell<usize>>,
     parent: RefCell<Weak<Directory>>,
     children: RefCell<Vec<Rc<Directory>>>,
 }
 
-fn build_filesystem(content: String) {
-    let root = Rc::new(Directory {
-        size: Rc::new(RefCell::new(0)),
-        parent: RefCell::new(Weak::new()),
-        children: RefCell::new(vec![])
-    });
+impl Directory {
+    fn new() -> Rc<Directory> {
+        Rc::new(Directory {
+            name: String::from("/"),
+            size: Rc::new(RefCell::new(0)),
+            parent: RefCell::new(Weak::new()),
+            children: RefCell::new(vec![])
+        })
+    }
 
-    println!("start");
-    println!("{root:?}");
-    // add file =====================================
+    fn open_dir(self: &Rc<Directory>, name: String) -> Option<Rc<Directory>> {
+        if let Some(dir) = self.children.borrow().iter()
+            .find(|&dir| dir.name == name) {
+            return Some(Rc::clone(dir));
+        }
+        None
+    }
 
-    update_size(&root, 100);
+    fn create_dir(self: &Rc<Directory>, name: String) -> Rc<Directory> {
+        let dir = Rc::new(Directory {
+            name,
+            size: Rc::new(RefCell::new(0)),
+            parent: RefCell::new(Rc::downgrade(self)),
+            children: RefCell::new(vec![])
+        });
 
-    println!("after file");
-    println!("{root:?}");
+        self.children.borrow_mut().push(Rc::clone(&dir));
 
-    //add dir =====================================
+        dir
+    }
 
-    let dir = Rc::new(Directory {
-        size: Rc::new(RefCell::new(0)),
-        parent: RefCell::new(Rc::downgrade(&root)),
-        children: RefCell::new(vec![])
-    });
+    fn add_file(self: &Rc<Directory>, amount: usize) {
+        *self.size.borrow_mut() += amount;
 
-    root.children.borrow_mut().push(Rc::clone(&dir));
+        if let Some(parent) = self.parent.borrow().upgrade() {
+            update_size(&parent, amount)
+        }
+    }
 
-    println!("after dir");
-    println!("{root:?}");
+    fn get_parent(self: &Rc<Directory>) -> Rc<Directory> {
+        self.parent.borrow().upgrade().unwrap()
+    }
 
-    //add dir in dir =====================================
+    fn get_sizes_under(self: &Rc<Directory>, max_size: usize) -> usize {
+        let own_size = *self.size.borrow();
+        let mut size = if own_size < max_size { own_size } else { 0 };
 
-    let sub_dir = Rc::new(Directory {
-        size: Rc::new(RefCell::new(0)),
-        parent: RefCell::new(Rc::downgrade(&dir)),
-        children: RefCell::new(vec![])
-    });
+        for child in self.children.borrow().iter() {
+            size += child.get_sizes_under(max_size);
+        }
+        size
+    }
+}
 
-    dir.children.borrow_mut().push(Rc::clone(&sub_dir));
+fn build_filesystem(content: String) -> Rc<Directory> {
+    let root = Directory::new();
 
-    let dir = sub_dir;
+    let mut dir = root.clone();
 
-    println!("after sub sir");
-    println!("{root:?}");
+    for line in content.lines().skip(1) {
+        if line == "$ ls" {
+            continue;
+        } else if line.starts_with("dir ") {
+            let dir_name = String::from(&line[4..]);
+            dir.create_dir(dir_name);
+        } else if line == "$ cd .." {
+            dir = dir.get_parent();
+        } else if line.starts_with("$ cd ") {
+            let dir_name = String::from(&line[5..]);
+            dir = dir.open_dir(dir_name).unwrap();
+        } else {
+            let split = line.split(" ").collect::<Vec<&str>>();
+            let size = split.get(0).unwrap();
+            dir.add_file(size.parse::<usize>().unwrap())
+        }
+    }
 
-    // add file in subdir =====================================
-
-    update_size(&dir, 50);
-
-    println!("after sub dir update");
-    println!("{root:?}");
-
-    // cd .. and add new subdir
-    let dir = dir.parent.borrow().upgrade().unwrap();
-
-    let sub_dir = Rc::new(Directory {
-        size: Rc::new(RefCell::new(0)),
-        parent: RefCell::new(Rc::downgrade(&dir)),
-        children: RefCell::new(vec![])
-    });
-
-    dir.children.borrow_mut().push(Rc::clone(&sub_dir));
-
-    let dir = sub_dir;
-    update_size(&dir, 75);
-
-    println!("after new sub dir with file");
-    println!("{root:?}");
+    root
 }
 
 fn update_size(directory: &Rc<Directory>, amount: usize) {
