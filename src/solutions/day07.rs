@@ -19,7 +19,7 @@ pub fn part2() {
 #[derive(Debug)]
 struct Directory {
     name: String,
-    size: Rc<RefCell<usize>>,
+    size: RefCell<usize>,
     parent: RefCell<Weak<Directory>>,
     children: RefCell<Vec<Rc<Directory>>>,
 }
@@ -28,7 +28,7 @@ impl Directory {
     fn new() -> Rc<Directory> {
         Rc::new(Directory {
             name: String::from("/"),
-            size: Rc::new(RefCell::new(0)),
+            size: RefCell::new(0),
             parent: RefCell::new(Weak::new()),
             children: RefCell::new(vec![])
         })
@@ -45,7 +45,7 @@ impl Directory {
     fn create_dir(self: &Rc<Directory>, name: String) -> Rc<Directory> {
         let dir = Rc::new(Directory {
             name,
-            size: Rc::new(RefCell::new(0)),
+            size: RefCell::new(0),
             parent: RefCell::new(Rc::downgrade(self)),
             children: RefCell::new(vec![])
         });
