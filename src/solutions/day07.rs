@@ -5,7 +5,7 @@ use std::rc::{Rc, Weak};
 pub fn part1() {
     let content = fs::read_to_string("puzzle_input/day07.txt").expect("Couldn't read file");
 
-    let size = build_filesystem(content).get_sizes_under(100000);
+    let size = build_filesystem(content).get_total_sizes_under(100000);
 
     println!("{size}");
 }
@@ -13,7 +13,14 @@ pub fn part1() {
 pub fn part2() {
     let content = fs::read_to_string("puzzle_input/day07.txt").expect("Couldn't read file");
 
-    println!("{content}");
+    let root = build_filesystem(content);
+
+    let free_space = 70000000 - *root.size.borrow();
+    let to_delete = 30000000 - free_space;
+
+    let dir_size = root.get_dir_closest_to(to_delete).unwrap();
+
+    println!("{dir_size}");
 }
 
 #[derive(Debug)]
@@ -30,7 +37,7 @@ impl Directory {
             name: String::from("/"),
             size: RefCell::new(0),
             parent: RefCell::new(Weak::new()),
-            children: RefCell::new(vec![])
+            children: RefCell::new(vec![]),
         })
     }
 
@@ -47,7 +54,7 @@ impl Directory {
             name,
             size: RefCell::new(0),
             parent: RefCell::new(Rc::downgrade(self)),
-            children: RefCell::new(vec![])
+            children: RefCell::new(vec![]),
         });
 
         self.children.borrow_mut().push(Rc::clone(&dir));
@@ -67,14 +74,30 @@ impl Directory {
         self.parent.borrow().upgrade().unwrap()
     }
 
-    fn get_sizes_under(self: &Rc<Directory>, max_size: usize) -> usize {
+    fn get_total_sizes_under(self: &Rc<Directory>, max_size: usize) -> usize {
         let own_size = *self.size.borrow();
         let mut size = if own_size < max_size { own_size } else { 0 };
 
         for child in self.children.borrow().iter() {
-            size += child.get_sizes_under(max_size);
+            size += child.get_total_sizes_under(max_size);
         }
         size
+    }
+
+    fn get_dir_closest_to(self: &Rc<Directory>, min_size: usize) -> Option<usize> {
+        let mut smallest_size = *self.size.borrow();
+
+        if smallest_size < min_size {
+            return None;
+        }
+
+        for child in self.children.borrow().iter() {
+            if let Some(size) = child.get_dir_closest_to(min_size) {
+                smallest_size = if smallest_size > size { size } else { smallest_size };
+            }
+        }
+
+        Some(smallest_size)
     }
 }
 
