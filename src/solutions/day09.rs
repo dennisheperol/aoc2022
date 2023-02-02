@@ -6,7 +6,7 @@ use crate::solutions::day09::Direction::{DOWN, LEFT, RIGHT, UP};
 pub fn part1() {
     let content = fs::read_to_string("puzzle_input/day09.txt").expect("Couldn't read file");
 
-    let positions = get_tail_positions(&content);
+    let positions = get_tail_positions(&content, 2);
 
     println!("{positions}");
 }
@@ -14,7 +14,9 @@ pub fn part1() {
 pub fn part2() {
     let content = fs::read_to_string("puzzle_input/day09.txt").expect("Couldn't read file");
 
-    println!("{content}");
+    let positions = get_tail_positions(&content, 10);
+
+    println!("{positions}");
 }
 
 #[derive(Debug)]
@@ -26,20 +28,20 @@ enum Direction {
 }
 
 struct Rope {
-    head: (i32, i32),
-    tail: (i32, i32),
+    segments: Vec<(i32, i32)>,
     tail_pos: HashSet<(i32, i32)>,
 }
 
 impl Rope {
-    fn new() -> Rope {
+    fn new(size: usize) -> Rope {
+        let mut segments = vec![];
+        (0..size).for_each(|_| segments.push((0, 0)));
         let mut tail_pos = HashSet::new();
         tail_pos.insert((0, 0));
 
         Rope {
-            head: (0, 0),
-            tail: (0, 0),
-            tail_pos,
+            segments,
+            tail_pos
         }
     }
 
@@ -50,18 +52,29 @@ impl Rope {
     }
 
     fn move_head(&mut self, direction: &Direction) {
-        self.head = match direction {
-            UP => (self.head.0 + 1, self.head.1),
-            DOWN => (self.head.0 - 1, self.head.1),
-            LEFT => (self.head.0, self.head.1 - 1),
-            RIGHT => (self.head.0, self.head.1 + 1),
+        let mut head = self.segments[0];
+        head = match direction {
+            UP => (head.0 + 1, head.1),
+            DOWN => (head.0 - 1, head.1),
+            LEFT => (head.0, head.1 - 1),
+            RIGHT => (head.0, head.1 + 1),
         };
-        self.check_move_tail();
+        self.segments[0] = head;
+
+        for i in 1..self.segments.len() {
+            self.check_move_segment(i);
+        }
+
+        self.save_tail_pos();
     }
 
-    fn check_move_tail(&mut self) {
-        let head = self.head;
-        let mut tail = self.tail;
+    fn save_tail_pos(&mut self) {
+        self.tail_pos.insert(*self.segments.last().unwrap());
+    }
+
+    fn check_move_segment(&mut self, segment: usize) {
+        let head = self.segments[segment-1];
+        let mut tail = self.segments[segment];
 
         if (head.0 - tail.0).abs() > 1 ||
             (head.1 - tail.1).abs() > 1 {
@@ -69,8 +82,7 @@ impl Rope {
             let move_1 = (head.1 - tail.1).min(1).max(-1);
 
             tail = (tail.0 + move_0, tail.1 + move_1);
-            self.tail = tail;
-            self.tail_pos.insert(tail);
+            self.segments[segment] = tail;
         }
     }
 
@@ -79,8 +91,8 @@ impl Rope {
     }
 }
 
-fn get_tail_positions(content: &String) -> usize {
-    let mut rope = Rope::new();
+fn get_tail_positions(content: &String, rope_size: usize) -> usize {
+    let mut rope = Rope::new(rope_size);
 
     for line in content.lines() {
         let movement = parse_movement(line);
