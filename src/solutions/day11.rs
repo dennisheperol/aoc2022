@@ -1,11 +1,18 @@
 use std::{fmt, fs};
+use std::ops::Mul;
 
 pub fn part1() {
     let content = fs::read_to_string("puzzle_input/day11.txt").expect("Couldn't read file");
 
-    let pack = parse_monkey_pack(&content);
+    let mut pack = parse_monkey_pack(&content);
 
-    println!("{pack:#?}");
+    for _ in 0..20 {
+        pack.do_round();
+    }
+
+    let solution = pack.get_monkey_business();
+
+    println!("{solution}");
 }
 
 pub fn part2() {
@@ -21,18 +28,27 @@ struct MonkeyPack {
 
 impl MonkeyPack {
     fn do_round(&mut self) {
-        for monkey in &mut self.monkeys {
-            while let Some((item, index)) = monkey.throw_item() {
+        for i in 0..self.monkeys.len() {
+            while let Some((item, index)) = self.monkeys[i].throw_item() {
                 self.monkeys[index].receive_item(item);
             }
         }
     }
+
+    fn get_monkey_business(&self) -> usize {
+        let mut inspections = self.monkeys
+            .iter()
+            .map(|monkey| monkey.inspections).collect::<Vec<usize>>();
+        inspections.sort();
+        inspections.reverse();
+        inspections.iter().take(2).product()
+    }
 }
 
 struct Monkey {
-    items: Vec<i32>,
-    operation: Box<dyn Fn(i32) -> i32>,
-    test: i32,
+    items: Vec<u64>,
+    operation: Box<dyn Fn(u64) -> u64>,
+    test: u64,
     test_true: usize,
     test_false: usize,
     inspections: usize
@@ -40,16 +56,17 @@ struct Monkey {
 
 impl fmt::Debug for Monkey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Monkey {{ items: {:?}, test: {:?}, test_true: {:?}, test_false {:?} }}", self.items, self.test, self.test_true, self.test_false)
+        write!(f, "Monkey {{ items: {:?}, test: {:?}, test_true: {:?}, test_false {:?}, inspections: {:?} }}",
+               self.items, self.test, self.test_true, self.test_false, self.inspections)
     }
 }
 
 impl Monkey {
-    fn new(items: Vec<i32>, operation: Box<dyn Fn(i32) -> i32>, test: i32, test_true: usize, test_false: usize) -> Monkey {
+    fn new(items: Vec<u64>, operation: Box<dyn Fn(u64) -> u64>, test: u64, test_true: usize, test_false: usize) -> Monkey {
         Monkey { items, operation, test, test_true, test_false, inspections: 0 }
     }
 
-    fn throw_item(&mut self) -> Option<(i32, usize)>{
+    fn throw_item(&mut self) -> Option<(u64, usize)>{
         if self.items.len() == 0 {
             return None;
         }
@@ -61,7 +78,7 @@ impl Monkey {
         Some((item, monkey))
     }
 
-    fn receive_item(&mut self, item: i32) {
+    fn receive_item(&mut self, item: u64) {
         self.items.push(item);
     }
 }
@@ -82,21 +99,21 @@ fn parse_monkey(monkey_string: &str) -> Monkey {
 
     let items = items[18..].split(", ").map(|s| s.parse().unwrap()).collect();
     let operation = parse_operation(&operation[23..]);
-    let test = &test[21..].parse::<i32>().unwrap();
+    let test = &test[21..].parse::<u64>().unwrap();
     let test_true = &test_true[29..].parse::<usize>().unwrap();
     let test_false = &test_false[30..].parse::<usize>().unwrap();
 
     Monkey::new(items, operation, *test, *test_true, *test_false)
 }
 
-fn parse_operation(operation: &str) -> Box<dyn Fn(i32) -> i32> {
+fn parse_operation(operation: &str) -> Box<dyn Fn(u64) -> u64> {
     if operation == "* old" {
-        Box::new(|x| x^2)
+        Box::new(|x| x.pow(2))
     } else if operation.starts_with("*") {
-        let number = operation[2..].parse::<i32>().unwrap();
+        let number = operation[2..].parse::<u64>().unwrap();
         Box::new(move |x| x * number)
     } else {
-        let number = operation[2..].parse::<i32>().unwrap();
+        let number = operation[2..].parse::<u64>().unwrap();
         Box::new(move |x| x + number)
     }
 }
