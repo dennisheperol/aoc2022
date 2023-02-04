@@ -1,5 +1,4 @@
 use std::{fmt, fs};
-use std::ops::Mul;
 
 pub fn part1() {
     let content = fs::read_to_string("puzzle_input/day11.txt").expect("Couldn't read file");
@@ -7,7 +6,7 @@ pub fn part1() {
     let mut pack = parse_monkey_pack(&content);
 
     for _ in 0..20 {
-        pack.do_round();
+        pack.do_round(|x| x / 3);
     }
 
     let solution = pack.get_monkey_business();
@@ -18,7 +17,16 @@ pub fn part1() {
 pub fn part2() {
     let content = fs::read_to_string("puzzle_input/day11.txt").expect("Couldn't read file");
 
-    println!("{content}");
+    let mut pack = parse_monkey_pack(&content);
+    let product = pack.product_of_monkey_tests();
+
+    for _ in 0..10000 {
+        pack.do_round(|x| x % product);
+    }
+
+    let solution = pack.get_monkey_business();
+
+    println!("{solution}");
 }
 
 #[derive(Debug)]
@@ -27,9 +35,11 @@ struct MonkeyPack {
 }
 
 impl MonkeyPack {
-    fn do_round(&mut self) {
+    fn do_round<F>(&mut self, worry_manager: F)
+        where F: FnOnce(u64) -> u64 + Copy
+    {
         for i in 0..self.monkeys.len() {
-            while let Some((item, index)) = self.monkeys[i].throw_item() {
+            while let Some((item, index)) = self.monkeys[i].throw_item(worry_manager) {
                 self.monkeys[index].receive_item(item);
             }
         }
@@ -43,6 +53,10 @@ impl MonkeyPack {
         inspections.reverse();
         inspections.iter().take(2).product()
     }
+
+    fn product_of_monkey_tests(&self) -> u64 {
+        self.monkeys.iter().map(|monkey| monkey.test).product()
+    }
 }
 
 struct Monkey {
@@ -51,7 +65,7 @@ struct Monkey {
     test: u64,
     test_true: usize,
     test_false: usize,
-    inspections: usize
+    inspections: usize,
 }
 
 impl fmt::Debug for Monkey {
@@ -66,12 +80,16 @@ impl Monkey {
         Monkey { items, operation, test, test_true, test_false, inspections: 0 }
     }
 
-    fn throw_item(&mut self) -> Option<(u64, usize)>{
+    fn throw_item<F>(&mut self, worry_manager: F) -> Option<(u64, usize)>
+        where F: FnOnce(u64) -> u64 + Copy
+    {
         if self.items.len() == 0 {
             return None;
         }
-        let item = self.items.remove(0);
-        let item = (self.operation)(item) / 3;
+        let mut item = self.items.remove(0);
+        item = (self.operation)(item);
+        item = worry_manager(item);
+
         let monkey = if item % self.test == 0 { self.test_true } else { self.test_false };
         self.inspections += 1;
 
