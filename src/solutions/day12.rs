@@ -13,7 +13,11 @@ pub fn part1() {
 pub fn part2() {
     let content = fs::read_to_string("puzzle_input/day12.txt").expect("Couldn't read file");
 
-    println!("{content}");
+    let mut map = parse_height_map(&content);
+    map.override_start();
+    let steps = map.steps_to_finish();
+
+    println!("{steps}")
 }
 
 #[derive(Debug)]
@@ -38,6 +42,23 @@ struct HeightMap {
 impl HeightMap {
     fn from<'a>(nodes: Vec<Vec<Node>>, start: (usize, usize)) -> HeightMap {
         HeightMap { nodes, to_visit: vec![start] }
+    }
+
+    fn override_start(&mut self) {
+        let mut next_to_visit = vec![];
+
+        for row in 0..self.nodes.len() {
+            for col in 0..self.nodes[row].len() {
+                let node = &mut self.nodes[row][col];
+
+                if node.height == 0 {
+                    next_to_visit.push((row, col));
+                    node.is_visited = true;
+                }
+            }
+        }
+
+        self.to_visit = next_to_visit;
     }
 
     fn steps_to_finish(&mut self) -> usize {
